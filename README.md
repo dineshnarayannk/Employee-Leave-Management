@@ -1,6 +1,6 @@
 # Employee Leave Management System
 
-A role-aware, enterprise-grade Employee Leave Management System built with a React + Vite frontend and Node.js + Express backend, connected to **TiDB Cloud (MySQL-Compatible)** with Google OAuth RBAC.
+A role-aware, enterprise-grade Employee Leave Management System built with a React + Vite frontend and Node.js + Express backend, connected to **TiDB Cloud (MySQL-Compatible)** with **Google OAuth 2.0 Single Sign-On** and **Role-Based Access Control (RBAC)**.
 
 ---
 
@@ -12,34 +12,64 @@ leave-management-system/
 ├── client/                     # Frontend (React 19 + Vite + Tailwind CSS)
 │   ├── src/
 │   │   ├── assets/             # Static assets & icons
-│   │   ├── components/         # Reusable UI components
-│   │   ├── context/            # AuthContext & role definitions
+│   │   ├── components/
+│   │   │   └── common/
+│   │   │       ├── ProtectedRoute.jsx  # Reusable RBAC Route Guard
+│   │   │       └── LoadingSpinner.jsx  # Reusable loading indicator
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx         # Google Auth state, session checker & role helpers
 │   │   ├── hooks/              # Custom React hooks (e.g. useFetch)
-│   │   ├── layouts/            # Page layouts & navigation
+│   │   ├── layouts/
+│   │   │   └── MainLayout.jsx          # Header with user avatar, portal link & sign out
 │   │   ├── lib/                # Utility helpers & class merger (cn)
-│   │   ├── pages/              # Portal pages (Auth, Admin, Manager, Employee)
-│   │   ├── routes/             # App routing definitions
-│   │   ├── services/           # API integration layer & health check client
-│   │   ├── App.jsx             # Main App root component
-│   │   ├── main.jsx            # React DOM mounting
+│   │   ├── pages/
+│   │   │   ├── auth/
+│   │   │   │   └── LoginPage.jsx       # Google Identity Services Sign-In
+│   │   │   ├── admin/
+│   │   │   │   └── AdminDashboard.jsx  # Protected Admin Portal (role_id: 1)
+│   │   │   ├── manager/
+│   │   │   │   └── ManagerDashboard.jsx# Protected Manager Portal (role_id: 2)
+│   │   │   ├── employee/
+│   │   │   │   └── EmployeeDashboard.jsx# Protected Employee Portal (role_id: 3)
+│   │   │   └── LandingPage.jsx         # Live system & database health check dashboard
+│   │   ├── routes/
+│   │   │   └── AppRoutes.jsx           # Protected route hierarchy & role gates
+│   │   ├── services/
+│   │   │   └── api.js                  # API fetcher (Google login, /auth/me, /auth/logout)
+│   │   ├── App.jsx             # Root React application
+│   │   ├── main.jsx            # React DOM bootstrap
 │   │   └── index.css           # Global Tailwind CSS styles
-│   ├── index.html              # HTML shell & font definitions
+│   ├── index.html              # HTML shell & Google Identity Services SDK
 │   ├── tailwind.config.js      # Tailwind configuration
 │   ├── postcss.config.js       # PostCSS configuration
 │   ├── vite.config.js          # Vite configuration
 │   └── package.json
 │
-├── server/                     # Backend API (Node.js + Express.js)
+├── server/                     # Backend REST API (Node.js + Express.js)
 │   ├── src/
-│   │   ├── config/             # Environment validation & SSL configuration
-│   │   ├── controllers/        # Route controllers (API & DB health checks)
+│   │   ├── config/             # Environment validation (DB, Google OAuth, JWT, SSL)
+│   │   ├── controllers/
+│   │   │   ├── authController.js   # Google OAuth login, /auth/me, /auth/logout
+│   │   │   └── healthController.js # API & DB health check controllers
 │   │   ├── db/                 # TiDB connection pool, initDb & seedDb scripts
-│   │   ├── middleware/         # Error handling, 404 handler & middlewares
-│   │   ├── routes/             # API routing
-│   │   ├── services/           # Business logic layer
-│   │   ├── utils/              # Standard response formatting & helpers
-│   │   ├── validators/         # Zod schemas & input validation
-│   │   ├── app.js              # Express app setup & middleware stack
+│   │   ├── middleware/
+│   │   │   ├── auth.js             # requireAuth & requireRole RBAC middleware
+│   │   │   ├── errorHandler.js     # Centralized error handler
+│   │   │   └── notFoundHandler.js  # 404 Route Not Found middleware
+│   │   ├── routes/
+│   │   │   ├── authRoutes.js       # /api/auth routes
+│   │   │   ├── healthRoutes.js     # /api/health routes
+│   │   │   └── index.js            # Main API router aggregator
+│   │   ├── services/
+│   │   │   └── authService.js      # google-auth-library token verification & DB lookups
+│   │   ├── test/
+│   │   │   └── authTest.js         # Automated auth and RBAC unit test suite
+│   │   ├── utils/
+│   │   │   ├── jwt.js              # JWT signing, verification & HTTP-only cookies
+│   │   │   └── response.js         # Standard JSON response formatting
+│   │   ├── validators/
+│   │   │   └── authValidator.js    # Zod payload validation schemas
+│   │   ├── app.js              # Express app setup, cookie-parser, CORS credentials
 │   │   └── server.js           # Server entry point & graceful shutdown
 │   └── package.json
 │
@@ -54,90 +84,46 @@ leave-management-system/
 
 ---
 
-## 👥 User Roles (RBAC)
+## 👥 User Roles & Access Control Matrix
 
-| Role | `role_id` | Description |
-| :--- | :--- | :--- |
-| **Admin** | `1` | Leave policy administration, department setup, organizational metrics |
-| **Manager** | `2` | Team leave approvals, direct report balances, calendar management |
-| **Employee** | `3` | Apply for leaves, track status, view personal leave balances |
+| Role | `role_id` | Portal Route | Permissions & Access Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `1` | `/admin` | System governance, department policies, user assignments |
+| **Manager** | `2` | `/manager` | Team leave approvals, direct report calendars, team analytics |
+| **Employee** | `3` | `/employee` | Submit leave requests, track approvals, view remaining balances |
+
+> 🔒 **Security Rule**: The frontend never determines the user's role. The backend verifies the Google ID token, retrieves the user's verified role directly from the database, and issues an application JWT stored in an **HTTP-only cookie**.
 
 ---
 
-## 🗄 TiDB Cloud Database Setup
+## 🔑 Google OAuth 2.0 Setup
 
-### 1. Prerequisites & Obtaining Connection Details
+### 1. Create Credentials in Google Cloud Console
 
-1. Sign up / log in to [TiDB Cloud](https://tidbcloud.com/).
-2. Create a Serverless Cluster (e.g., in AWS `ap-southeast-1` or your preferred region).
-3. Click **Connect** on the cluster overview page:
-   - Select **General** connection method.
-   - Note the **Host**, **Port** (usually `4000`), **User**, **Password**, and **Database Name** (e.g. `test` or `leave_management_db`).
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Navigate to **APIs & Services** > **Credentials**.
+3. Click **Create Credentials** > **OAuth client ID**.
+4. Application type: **Web application**.
+5. **Authorized JavaScript origins**:
+   - `http://localhost:5173`
+6. *(No Redirect URIs are needed since Google Identity Services operates in frontend JavaScript popup/callback mode).*
+7. Copy the generated **Client ID**.
 
 ### 2. Configure Environment Variables
 
-Create a `.env` file in `server/` (or at the root):
-
+**Backend (`server/.env`):**
 ```env
-# Server Configuration
-PORT=5001
-NODE_ENV=development
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long
+JWT_EXPIRES_IN=1d
 CLIENT_URL=http://localhost:5173
-
-# TiDB Cloud Credentials
-DB_HOST=gateway01.ap-southeast-1.prod.aws.tidbcloud.com
-DB_PORT=4000
-DB_USER=your_prefix.root
-DB_PASSWORD=your_secure_tidb_password
-DB_NAME=leave_management_db
-
-# Optional Custom CA Certificate (if required by your OS environment)
-# DB_SSL_CA=/path/to/isrgrootx1.pem
-
-# Connection Pool Settings
-DB_CONNECTION_LIMIT=10
-DB_QUEUE_LIMIT=0
 ```
 
-### 3. SSL / CA Certificate Support
-
-TiDB Cloud Serverless requires TLS 1.2+ encrypted connections.
-- The `mysql2/promise` connection pool automatically enables TLS encryption with `{ minVersion: 'TLSv1.2', rejectUnauthorized: true }`.
-- If your environment requires an explicit CA bundle (e.g., `isrgrootx1.pem`), specify its path in `DB_SSL_CA`.
-
----
-
-## 🚀 Database Migration & Seeding
-
-### Initialize Schema (Tables & Constraints)
-
-To create all 7 relational tables in TiDB Cloud without dropping existing data:
-
-```bash
-cd server
-npm run db:init
+**Frontend (`client/.env`):**
+```env
+VITE_API_URL=http://localhost:5001/api
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 ```
-
-### Seed Initial Roles & Leave Types
-
-To insert roles (`Admin: 1`, `Manager: 2`, `Employee: 3`) and default leave categories idempotently:
-
-```bash
-cd server
-npm run db:seed
-```
-
----
-
-## 📋 Database Tables Summary
-
-1. **`roles`**: System roles (`id`, `name`, `description`, `created_at`).
-2. **`users`**: User records with Google IDs, roles, managers, and departments.
-3. **`leave_types`**: Configurable leave policies (Casual, Sick, Earned, Optional).
-4. **`leave_balances`**: Quota and balance tracking per employee per year.
-5. **`leave_requests`**: Applications, status (`PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`), manager responses, review audit timestamps.
-6. **`notifications`**: In-app notifications linked to leave status transitions.
-7. **`audit_logs`**: Compliance trail for role updates, manager assignments, and approvals.
 
 ---
 
@@ -146,92 +132,53 @@ npm run db:seed
 ### Option A: From Root Workspace
 
 ```bash
-# Start Frontend (React + Vite)
+# Start Frontend (React + Vite on port 5173)
 npm run dev
 
-# Start Backend (Express + Nodemon)
+# Start Backend (Express + Nodemon on port 5001)
 npm start
 ```
 
 ### Option B: From Individual Subdirectories
 
-#### 1. Start Backend API
+#### Backend:
+```bash
+cd server
+npm start
+```
+
+#### Frontend:
+```bash
+cd client
+npm run dev
+```
+
+---
+
+## 🧪 Testing & Verification
+
+### 1. Run Auth & RBAC Verification Tests
 
 ```bash
 cd server
-npm install
-npm start
+npm run test:auth
 ```
-- API Server: `http://localhost:5001`
-- Health check (API): `http://localhost:5001/api/health`
-- Health check (DB) : `http://localhost:5001/api/health/db`
+*Validates TiDB user records, JWT signing/verifying, and role portal routing matrix.*
 
-#### 2. Start Frontend Application
+### 2. Authentication API Endpoints
 
-```bash
-cd client
-npm install
-npm run dev
-```
-- Client App: `http://localhost:5173`
-
----
-
-## 🩺 Health Check Verification
-
-### API Health Check
-```bash
-curl http://localhost:5001/api/health
-```
-```json
-{
-  "success": true,
-  "message": "Leave Management System API is running smoothly",
-  "status": "healthy"
-}
-```
-
-### TiDB Database Health Check
-```bash
-curl http://localhost:5001/api/health/db
-```
-When configured and connected:
-```json
-{
-  "success": true,
-  "message": "Database connection is healthy",
-  "database": "connected",
-  "version": "8.0.11-TiDB-v8.5.0",
-  "databaseName": "leave_management_db"
-}
-```
-When unconfigured:
-```json
-{
-  "success": false,
-  "message": "Database connection is not configured",
-  "database": "unconfigured",
-  "missing": ["DB_HOST (or DATABASE_HOST)", "DB_USER (or DATABASE_USER)", "DB_PASSWORD (or DATABASE_PASSWORD)", "DB_NAME (or DATABASE_NAME)"]
-}
-```
-
----
-
-## ⚠️ Common Database Troubleshooting
-
-1. **`ER_ACCESS_DENIED_ERROR` / Invalid credentials**:
-   - Double check your `DB_USER` (TiDB Cloud users include cluster prefix like `xxxx.root`) and `DB_PASSWORD`.
-2. **`ETIMEDOUT` / Network connectivity**:
-   - Ensure your IP is allowed in TiDB Cloud Console -> Security -> IP Access List (or allow `0.0.0.0/0` for development).
-3. **`HANDSHAKE_SSL_ERROR`**:
-   - Ensure your Node.js version supports TLS 1.2+ and system certificates are up to date.
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/google` | Verify Google ID token, authenticate user & set session cookie | No |
+| `GET` | `/api/auth/me` | Retrieve authenticated user profile and active role | Yes (JWT Cookie) |
+| `POST` | `/api/auth/logout` | Clear HTTP-only session cookie | No |
 
 ---
 
 ## 🗺 Execution Roadmap
 
-- [x] **Phase 1**: Project Structure & Environment Initialization
+- [x] **Phase 1**: Project Structure & Development Environment Initialization
 - [x] **Phase 2**: TiDB Cloud Database Schema & Connection Pool
-- [ ] **Phase 3**: Google OAuth Authentication & Role-Based Authorization
+- [x] **Phase 3**: Google OAuth Authentication & Role-Based Access Control (RBAC)
 - [ ] **Phase 4**: Admin, Manager, and Employee Portals & Leave Management Engine
 - [ ] **Phase 5**: Chart Analytics, Verification, & Polish

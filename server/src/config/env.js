@@ -23,14 +23,19 @@ export const config = {
     waitForConnections: true,
   },
 
-  // Google OAuth (for future phase)
+  // Google OAuth 2.0 (Client ID for ID token verification)
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    callbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5001/api/auth/google/callback',
   },
 
-  // Session Secret (for future phase)
+  // JWT Configuration
+  jwt: {
+    secret: process.env.JWT_SECRET || 'dev-fallback-jwt-secret-key-32-chars-long!',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    cookieName: 'token',
+  },
+
+  // Session Secret (for future session-based workflows if needed)
   sessionSecret: process.env.SESSION_SECRET || 'dev-session-secret-change-in-production',
 };
 
@@ -44,6 +49,21 @@ export function validateDatabaseConfig() {
   if (!config.database.user) missing.push('DB_USER (or DATABASE_USER)');
   if (!config.database.password) missing.push('DB_PASSWORD (or DATABASE_PASSWORD)');
   if (!config.database.name) missing.push('DB_NAME (or DATABASE_NAME)');
+
+  return {
+    isConfigured: missing.length === 0,
+    missing,
+  };
+}
+
+/**
+ * Validates Google OAuth and JWT environment variables
+ * @returns {{ isConfigured: boolean, missing: string[] }}
+ */
+export function validateAuthConfig() {
+  const missing = [];
+  if (!config.google.clientId) missing.push('GOOGLE_CLIENT_ID');
+  if (!process.env.JWT_SECRET) missing.push('JWT_SECRET');
 
   return {
     isConfigured: missing.length === 0,
