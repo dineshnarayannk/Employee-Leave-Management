@@ -1,0 +1,15 @@
+{
+  "name": "employee-leave-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Employee Leave Management System workspace",
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "start": "npm --prefix server start",
+    "server": "npm --prefix server start",
+    "client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "db:init": "npm --prefix server run db:init",
+    "db:seed": "npm --prefix server run db:seed"
+  }
+}
