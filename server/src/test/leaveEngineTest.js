@@ -56,17 +56,17 @@ async function runTests() {
     // Test Group 3: Setup Test Users & Manager Assignment
     // -------------------------------------------------------------
     console.log('\n--- Group 3: Test Fixture Setup ---');
-    // Ensure test manager (id: 2) and test employee (id: 3) exist
+    // Ensure test manager (id: 2) and test employee (id: 3) exist without overwriting custom names
     await query(
       `INSERT INTO users (id, name, email, role_id, department, manager_id, is_active)
-       VALUES (2, 'Dev Manager', 'manager.dev@example.com', 2, 'Engineering', 1, TRUE)
-       ON DUPLICATE KEY UPDATE name = 'Dev Manager', role_id = 2, is_active = TRUE`
+       VALUES (2, 'Manager', 'manager.dev@example.com', 2, 'Engineering', 1, TRUE)
+       ON DUPLICATE KEY UPDATE role_id = 2, is_active = TRUE`
     );
 
     await query(
       `INSERT INTO users (id, name, email, role_id, department, manager_id, is_active)
-       VALUES (3, 'Dev Employee', 'employee.dev@example.com', 3, 'Engineering', 2, TRUE)
-       ON DUPLICATE KEY UPDATE name = 'Dev Employee', role_id = 3, manager_id = 2, is_active = TRUE`
+       VALUES (3, 'Employee', 'employee.dev@example.com', 3, 'Engineering', 2, TRUE)
+       ON DUPLICATE KEY UPDATE role_id = 3, manager_id = 2, is_active = TRUE`
     );
 
     // Clean up test leave requests for employee 3 to have a clean state
@@ -355,6 +355,57 @@ async function runTests() {
     const mgrDashboardStats = await leaveService.getManagerStats(2);
     assert(Array.isArray(mgrDashboardStats.upcomingTeamLeaves), 'Manager stats includes upcomingTeamLeaves array');
 
+    // -------------------------------------------------------------
+    // Test Group 14: Step 7 Manager Team Analytics & Scope Isolation
+    // -------------------------------------------------------------
+    console.log('\n--- Group 14: Step 7 Manager Team Analytics & Scope Isolation ---');
+
+    // Manager 2 analytics for 2026
+    const mgrAnalytics = await leaveService.getManagerAnalytics(2, 2026);
+    assert(mgrAnalytics && mgrAnalytics.summary, 'Manager analytics summary object returned');
+    assert(mgrAnalytics.summary.teamDirectReportsCount >= 1, `Direct reports count accurately tracked (${mgrAnalytics.summary.teamDirectReportsCount})`);
+    assert(mgrAnalytics.summary.approvedRequests >= 1, `Approved requests metric tracked in analytics (${mgrAnalytics.summary.approvedRequests})`);
+    assert(mgrAnalytics.summary.approvedLeaveDays >= 3, `Approved leave days accurately summed in analytics (${mgrAnalytics.summary.approvedLeaveDays})`);
+    assert(Array.isArray(mgrAnalytics.monthlyTrend) && mgrAnalytics.monthlyTrend.length === 12, '12-month trend array returned');
+    assert(Array.isArray(mgrAnalytics.leaveTypeUsage), 'Leave type breakdown array returned');
+
+    // Unrelated Manager (id: 999) retrieves 0 analytics
+    const emptyMgrAnalytics = await leaveService.getManagerAnalytics(999, 2026);
+    assert(emptyMgrAnalytics.summary.totalRequests === 0, 'Unrelated manager gets 0 requests in team analytics');
+    assert(emptyMgrAnalytics.summary.approvedLeaveDays === 0, 'Unrelated manager gets 0 approved days');
+
+    // -------------------------------------------------------------
+    // Test Group 15: Step 7 Manager Leave Reports & CSV Formatting
+    // -------------------------------------------------------------
+    console.log('\n--- Group 15: Step 7 Manager Leave Reports & Filters ---');
+
+    // Manager reports for 2026
+    const mgrReports = await leaveService.getManagerReports(2, { year: 2026, page: 1, limit: 10 });
+    assert(Array.isArray(mgrReports.records) && mgrReports.records.length >= 1, `Manager reports returned team records (found: ${mgrReports.records.length})`);
+    assert(mgrReports.summary.pageApprovedDays >= 3, `Manager reports calculates page approved days (${mgrReports.summary.pageApprovedDays})`);
+
+    // Filtering by status APPROVED
+    const mgrApprovedReports = await leaveService.getManagerReports(2, { status: 'APPROVED' });
+    const allApprovedInReport = mgrApprovedReports.records.every((r) => r.status === 'APPROVED');
+    assert(allApprovedInReport && mgrApprovedReports.records.length >= 1, 'Manager report status filter returns only APPROVED leaves');
+
+    // Unrelated manager retrieves 0 records in reports
+    const emptyReports = await leaveService.getManagerReports(999, {});
+    assert(emptyReports.records.length === 0 && emptyReports.summary.totalRecords === 0, 'Unrelated manager sees 0 records in team reports');
+
+    // -------------------------------------------------------------
+    // Test Group 16: Step 7 Read-Only Integrity Check
+    // -------------------------------------------------------------
+    console.log('\n--- Group 16: Step 7 Read-Only Balance Integrity Verification ---');
+
+    // Verify employee balance was not altered by any analytics or report queries
+    const balancesAfterReports = await leaveService.getEmployeeBalances(3, 2026);
+    const casualFinal = balancesAfterReports.find((b) => b.leave_type_name === 'Casual Leave');
+    assert(
+      casualFinal.used_days === 3 && casualFinal.remaining_days === 9,
+      'Analytics and report queries remain strictly read-only (balance unchanged: used=3, remaining=9)'
+    );
+
     console.log('\n======================================================');
     console.log(`📊 TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
     console.log('======================================================\n');
@@ -369,4 +420,5 @@ async function runTests() {
 runTests().then(() => {
   process.exit(failed > 0 ? 1 : 0);
 });
+
 

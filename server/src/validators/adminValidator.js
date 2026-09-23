@@ -86,3 +86,51 @@ export const userFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
+
+export const createLeaveTypeSchema = z.object({
+  name: z
+    .string({ required_error: 'Leave type name is required' })
+    .trim()
+    .min(2, 'Leave type name must be at least 2 characters')
+    .max(100, 'Leave type name cannot exceed 100 characters'),
+  description: z.string().trim().max(255, 'Description cannot exceed 255 characters').optional().default(''),
+  default_days: z.coerce
+    .number({ required_error: 'Default allocated days is required' })
+    .int('Default days must be an integer')
+    .min(0, 'Default days cannot be negative')
+    .max(365, 'Default days cannot exceed 365'),
+  is_active: z.boolean().optional().default(true),
+});
+
+export const updateLeaveTypeSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Leave type name must be at least 2 characters')
+    .max(100, 'Leave type name cannot exceed 100 characters')
+    .optional(),
+  description: z.string().trim().max(255, 'Description cannot exceed 255 characters').optional(),
+  default_days: z.coerce
+    .number()
+    .int('Default days must be an integer')
+    .min(0, 'Default days cannot be negative')
+    .max(365, 'Default days cannot exceed 365')
+    .optional(),
+  is_active: z.boolean().optional(),
+});
+
+export const analyticsQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional().default(new Date().getFullYear()),
+});
+
+export const reportQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']).optional(),
+  leave_type_id: z.coerce.number().int().positive().optional(),
+  department: z.string().trim().optional(),
+  employee_id: z.coerce.number().int().positive().optional(),
+  search: z.string().trim().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
+});
+

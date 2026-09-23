@@ -1,4 +1,5 @@
 import { query } from '../db/index.js';
+import { formatISODate, calculateInclusiveDays } from '../utils/dateUtils.js';
 
 /**
  * Fetch paginated, filtered list of users for Admin User Management
@@ -477,3 +478,487 @@ export async function getAdminDashboardStats() {
     pendingLeaves: Number(pendingLeaves?.count || 0),
   };
 }
+
+/**
+ * Fetch Comprehensive System-wide Analytics for Admin (Step 7)
+ */
+export async function getAdminAnalytics(year = new Date().getFullYear()) {
+  const numericYear = Number(year) || new Date().getFullYear();
+
+  // 1. High-level Summary counts for the selected year
+  const summarySql = `
+    SELECT 
+      COUNT(*) AS total_requests,
+      SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending_requests,
+      SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_requests,
+      SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_requests,
+      SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled_requests
+    FROM leave_requests
+    WHERE YEAR(start_date) = ? OR YEAR(end_date) = ?
+  `;
+  const [summaryRow] = await query(summarySql, [numericYear, numericYear]);
+
+  // Total approved leave days calculation (using inclusive days for approved requests)
+  const approvedDaysSql = `
+    SELECT start_date, end_date
+    FROM leave_requests
+    WHERE status = 'APPROVED' AND (YEAR(start_date) = ? OR YEAR(end_date) = ?)
+  `;
+  const approvedRows = await query(approvedDaysSql, [numericYear, numericYear]);
+  let totalApprovedDays = 0;
+  for (const r of approvedRows) {
+    const s = formatISODate(r.start_date);
+    const e = formatISODate(r.end_date);
+    try {
+      totalApprovedDays += calculateInclusiveDays(s, e);
+    } catch (err) {}
+  }
+
+  // 2. Monthly Trend (12 months)
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyTrend = monthNames.map((name, idx) => ({
+    month: name,
+    monthIndex: idx + 1,
+    totalRequests: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+    cancelled: 0,
+    approvedDays: 0,
+  }));
+
+  const allYearRequestsSql = `
+    SELECT id, start_date, end_date, status
+    FROM leave_requests
+    WHERE YEAR(start_date) = ? OR YEAR(end_date) = ?
+  `;
+  const yearRequests = await query(allYearRequestsSql, [numericYear, numericYear]);
+
+  for (const req of yearRequests) {
+    const s = formatISODate(req.start_date);
+    const e = formatISODate(req.end_date);
+    const startMonth = new Date(s).getUTCMonth(); // 0 to 11
+    if (startMonth >= 0 && startMonth < 12) {
+      monthlyTrend[startMonth].totalRequests++;
+      if (req.status === 'APPROVED') {
+        monthlyTrend[startMonth].approved++;
+        try {
+          monthlyTrend[startMonth].approvedDays += calculateInclusiveDays(s, e);
+        } catch (err) {}
+      } else if (req.status === 'PENDING') {
+        monthlyTrend[startMonth].pending++;
+      } else if (req.status === 'REJECTED') {
+        monthlyTrend[startMonth].rejected++;
+      } else if (req.status === 'CANCELLED') {
+        monthlyTrend[startMonth].cancelled++;
+      }
+    }
+  }
+
+  // 3. Status Distribution
+  const pendingCount = Number(summaryRow?.pending_requests || 0);
+  const approvedCount = Number(summaryRow?.approved_requests || 0);
+  const rejectedCount = Number(summaryRow?.rejected_requests || 0);
+  const cancelledCount = Number(summaryRow?.cancelled_requests || 0);
+  const totalRequests = Number(summaryRow?.total_requests || 0);
+
+  const statusDistribution = [
+    { status: 'APPROVED', label: 'Approved', count: approvedCount, color: '#10B981' },
+    { status: 'PENDING', label: 'Pending', count: pendingCount, color: '#F59E0B' },
+    { status: 'REJECTED', label: 'Rejected', count: rejectedCount, color: '#EF4444' },
+    { status: 'CANCELLED', label: 'Cancelled', count: cancelledCount, color: '#64748B' },
+  ];
+
+  // 4. Leave Type Usage Breakdown
+  const leaveTypeUsageSql = `
+    SELECT 
+      lt.id AS leave_type_id,
+      lt.name AS leave_type_name,
+      COUNT(lr.id) AS total_requests,
+      SUM(CASE WHEN lr.status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_count
+    FROM leave_types lt
+    LEFT JOIN leave_requests lr ON lt.id = lr.leave_type_id AND (YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)
+    GROUP BY lt.id, lt.name
+    ORDER BY total_requests DESC
+  `;
+  const leaveTypeRows = await query(leaveTypeUsageSql, [numericYear, numericYear]);
+  const leaveTypeUsage = leaveTypeRows.map((r) => ({
+    leave_type_id: r.leave_type_id,
+    name: r.leave_type_name,
+    totalRequests: Number(r.total_requests || 0),
+    approvedCount: Number(r.approved_count || 0),
+  }));
+
+  // 5. Department Breakdown
+  const departmentSql = `
+    SELECT 
+      COALESCE(u.department, 'Unassigned') AS department,
+      COUNT(DISTINCT u.id) AS total_employees,
+      COUNT(lr.id) AS total_requests,
+      SUM(CASE WHEN lr.status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_requests
+    FROM users u
+    LEFT JOIN leave_requests lr ON u.id = lr.employee_id AND (YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)
+    WHERE u.role_id = 3
+    GROUP BY COALESCE(u.department, 'Unassigned')
+    ORDER BY total_requests DESC
+  `;
+  const deptRows = await query(departmentSql, [numericYear, numericYear]);
+  const departmentBreakdown = deptRows.map((d) => ({
+    department: d.department,
+    totalEmployees: Number(d.total_employees || 0),
+    totalRequests: Number(d.total_requests || 0),
+    approvedRequests: Number(d.approved_requests || 0),
+  }));
+
+  // Total organization users overview
+  const orgStats = await getAdminDashboardStats();
+
+  return {
+    year: numericYear,
+    summary: {
+      totalUsers: orgStats.totalUsers,
+      activeEmployees: orgStats.activeEmployees,
+      activeManagers: orgStats.activeManagers,
+      totalDepartments: orgStats.totalDepartments,
+      totalRequests,
+      pendingRequests: pendingCount,
+      approvedRequests: approvedCount,
+      rejectedRequests: rejectedCount,
+      cancelledRequests: cancelledCount,
+      approvedLeaveDays: totalApprovedDays,
+    },
+    monthlyTrend,
+    statusDistribution,
+    leaveTypeUsage,
+    departmentBreakdown,
+  };
+}
+
+/**
+ * Fetch Comprehensive System-wide Tabular Leave Reports for Admin (Step 7)
+ */
+export async function getAdminReports({
+  year,
+  status,
+  leave_type_id,
+  department,
+  search,
+  page = 1,
+  limit = 50,
+}) {
+  const whereClauses = [];
+  const params = [];
+
+  if (year) {
+    whereClauses.push('(YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)');
+    params.push(year, year);
+  }
+
+  if (status) {
+    whereClauses.push('lr.status = ?');
+    params.push(status);
+  }
+
+  if (leave_type_id) {
+    whereClauses.push('lr.leave_type_id = ?');
+    params.push(leave_type_id);
+  }
+
+  if (department) {
+    whereClauses.push('u.department = ?');
+    params.push(department);
+  }
+
+  if (search) {
+    whereClauses.push('(u.name LIKE ? OR u.email LIKE ? OR lr.reason LIKE ? OR lt.name LIKE ?)');
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+  // Count total records
+  const countSql = `
+    SELECT COUNT(*) AS total 
+    FROM leave_requests lr
+    JOIN users u ON lr.employee_id = u.id
+    JOIN leave_types lt ON lr.leave_type_id = lt.id
+    ${whereSql}
+  `;
+  const [countRes] = await query(countSql, params);
+  const total = Number(countRes?.total || 0);
+
+  // Paginated query
+  const offset = (page - 1) * limit;
+  const dataSql = `
+    SELECT 
+      lr.id,
+      lr.employee_id,
+      u.name AS employee_name,
+      u.email AS employee_email,
+      u.department AS employee_department,
+      lr.manager_id,
+      m.name AS manager_name,
+      lr.leave_type_id,
+      lt.name AS leave_type_name,
+      lr.start_date,
+      lr.end_date,
+      lr.reason,
+      lr.status,
+      lr.manager_response,
+      lr.reviewed_at,
+      lr.created_at
+    FROM leave_requests lr
+    JOIN users u ON lr.employee_id = u.id
+    JOIN users m ON lr.manager_id = m.id
+    JOIN leave_types lt ON lr.leave_type_id = lt.id
+    ${whereSql}
+    ORDER BY lr.start_date DESC, lr.id DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const rows = await query(dataSql, [...params, limit, offset]);
+
+  let totalApprovedDays = 0;
+  const records = rows.map((r) => {
+    const formattedStart = formatISODate(r.start_date);
+    const formattedEnd = formatISODate(r.end_date);
+    const duration = calculateInclusiveDays(formattedStart, formattedEnd);
+
+    if (r.status === 'APPROVED') {
+      totalApprovedDays += duration;
+    }
+
+    return {
+      id: r.id,
+      employee_id: r.employee_id,
+      employee_name: r.employee_name,
+      employee_email: r.employee_email,
+      employee_department: r.employee_department,
+      manager_id: r.manager_id,
+      manager_name: r.manager_name,
+      leave_type_id: r.leave_type_id,
+      leave_type_name: r.leave_type_name,
+      start_date: formattedStart,
+      end_date: formattedEnd,
+      days: duration,
+      reason: r.reason,
+      status: r.status,
+      manager_response: r.manager_response,
+      reviewed_at: r.reviewed_at,
+      created_at: r.created_at,
+    };
+  });
+
+  return {
+    records,
+    summary: {
+      totalRecords: total,
+      pageApprovedDays: totalApprovedDays,
+    },
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
+}
+
+/**
+ * Fetch All Leave Types with Usage Stats for Policy Management (Admin)
+ */
+export async function getAdminLeaveTypes() {
+  const sql = `
+    SELECT 
+      lt.id,
+      lt.name,
+      lt.description,
+      lt.default_days,
+      lt.is_active,
+      lt.created_at,
+      lt.updated_at,
+      (SELECT COUNT(*) FROM leave_requests WHERE leave_type_id = lt.id) AS total_requests_count,
+      (SELECT COUNT(*) FROM leave_balances WHERE leave_type_id = lt.id) AS allocated_balances_count
+    FROM leave_types lt
+    ORDER BY lt.id ASC
+  `;
+  const rows = await query(sql);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description || '',
+    default_days: Number(r.default_days),
+    is_active: Boolean(r.is_active),
+    total_requests_count: Number(r.total_requests_count || 0),
+    allocated_balances_count: Number(r.allocated_balances_count || 0),
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
+}
+
+/**
+ * Create a new Leave Type Policy (Admin)
+ */
+export async function createLeaveType(adminId, data) {
+  const { name, description = '', default_days = 0, is_active = true } = data;
+
+  // Check unique name
+  const [existing] = await query('SELECT id FROM leave_types WHERE name = ?', [name]);
+  if (existing) {
+    const error = new Error(`Leave policy "${name}" already exists.`);
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const result = await query(
+    `INSERT INTO leave_types (name, description, default_days, is_active)
+     VALUES (?, ?, ?, ?)`,
+    [name, description, default_days, is_active ? 1 : 0]
+  );
+
+  const newId = result.insertId;
+
+  // Log audit
+  try {
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES (?, 'LEAVE_TYPE_CREATED', 'leave_type', ?, ?)`,
+      [adminId, newId, JSON.stringify({ name, default_days, is_active })]
+    );
+  } catch (err) {}
+
+  return {
+    id: newId,
+    name,
+    description,
+    default_days,
+    is_active,
+  };
+}
+
+/**
+ * Update an existing Leave Type Policy (Admin)
+ */
+export async function updateLeaveType(adminId, leaveTypeId, data) {
+  const [existing] = await query('SELECT * FROM leave_types WHERE id = ?', [leaveTypeId]);
+  if (!existing) {
+    const error = new Error(`Leave policy #${leaveTypeId} not found.`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const { name, description, default_days, is_active } = data;
+
+  // If changing name, verify uniqueness
+  if (name && name !== existing.name) {
+    const [dup] = await query('SELECT id FROM leave_types WHERE name = ? AND id != ?', [name, leaveTypeId]);
+    if (dup) {
+      const error = new Error(`Leave policy name "${name}" is already in use.`);
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
+  const updatedName = name !== undefined ? name : existing.name;
+  const updatedDesc = description !== undefined ? description : existing.description;
+  const updatedDays = default_days !== undefined ? default_days : existing.default_days;
+  const updatedActive = is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active;
+
+  await query(
+    `UPDATE leave_types 
+     SET name = ?, description = ?, default_days = ?, is_active = ?
+     WHERE id = ?`,
+    [updatedName, updatedDesc, updatedDays, updatedActive, leaveTypeId]
+  );
+
+  // Log audit
+  try {
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES (?, 'LEAVE_TYPE_UPDATED', 'leave_type', ?, ?)`,
+      [adminId, leaveTypeId, JSON.stringify({ name: updatedName, default_days: updatedDays, is_active: Boolean(updatedActive) })]
+    );
+  } catch (err) {}
+
+  return {
+    id: leaveTypeId,
+    name: updatedName,
+    description: updatedDesc,
+    default_days: Number(updatedDays),
+    is_active: Boolean(updatedActive),
+  };
+}
+
+/**
+ * Toggle Leave Type Active Status (Admin)
+ */
+export async function updateLeaveTypeStatus(adminId, leaveTypeId, isActive) {
+  const [existing] = await query('SELECT id, name FROM leave_types WHERE id = ?', [leaveTypeId]);
+  if (!existing) {
+    const error = new Error(`Leave policy #${leaveTypeId} not found.`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await query('UPDATE leave_types SET is_active = ? WHERE id = ?', [isActive ? 1 : 0, leaveTypeId]);
+
+  try {
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES (?, 'LEAVE_TYPE_STATUS_UPDATED', 'leave_type', ?, ?)`,
+      [adminId, leaveTypeId, JSON.stringify({ name: existing.name, is_active: isActive })]
+    );
+  } catch (err) {}
+
+  return {
+    success: true,
+    message: `Leave policy "${existing.name}" is now ${isActive ? 'active' : 'inactive'}.`,
+    is_active: isActive,
+  };
+}
+
+/**
+ * Safely delete a Leave Type Policy if unreferenced (Admin)
+ */
+export async function deleteLeaveType(adminId, leaveTypeId) {
+  const [existing] = await query('SELECT id, name FROM leave_types WHERE id = ?', [leaveTypeId]);
+  if (!existing) {
+    const error = new Error(`Leave policy #${leaveTypeId} not found.`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Check references in leave_requests and used leave_balances
+  const [reqCount] = await query('SELECT COUNT(*) AS count FROM leave_requests WHERE leave_type_id = ?', [leaveTypeId]);
+  const [usedBalCount] = await query('SELECT COUNT(*) AS count FROM leave_balances WHERE leave_type_id = ? AND used_days > 0', [leaveTypeId]);
+
+  const requests = Number(reqCount?.count || 0);
+  const usedBalances = Number(usedBalCount?.count || 0);
+
+  if (requests > 0 || usedBalances > 0) {
+    const error = new Error(
+      `Cannot delete leave policy "${existing.name}" because it is referenced in ${requests} leave request(s) and historical usage. Please deactivate the policy instead to preserve historical records.`
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Clean up any unused auto-allocated quotas before deleting policy
+  await query('DELETE FROM leave_balances WHERE leave_type_id = ? AND used_days = 0', [leaveTypeId]);
+  await query('DELETE FROM leave_types WHERE id = ?', [leaveTypeId]);
+
+  try {
+    await query(
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
+       VALUES (?, 'LEAVE_TYPE_DELETED', 'leave_type', ?, ?)`,
+      [adminId, leaveTypeId, JSON.stringify({ name: existing.name })]
+    );
+  } catch (err) {}
+
+  return {
+    success: true,
+    message: `Leave policy "${existing.name}" was successfully deleted.`,
+  };
+}
+

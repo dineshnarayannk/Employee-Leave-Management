@@ -5,10 +5,10 @@ import {
   ShieldCheck, 
   AlertCircle, 
   LogIn, 
-  CheckCircle2, 
+  Mail, 
+  Lock, 
   Info, 
-  ExternalLink,
-  Sparkles
+  ArrowRight 
 } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
@@ -18,7 +18,12 @@ export default function LoginPage() {
   const location = useLocation();
   const googleBtnRef = useRef(null);
   const [localError, setLocalError] = useState(null);
+  const [demoNotice, setDemoNotice] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Demo form state
+  const [demoEmail, setDemoEmail] = useState('');
+  const [demoPassword, setDemoPassword] = useState('');
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -36,6 +41,7 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     setLocalError(null);
+    setDemoNotice(null);
     if (setAuthError) setAuthError(null);
 
     try {
@@ -47,6 +53,11 @@ export default function LoginPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleDemoSubmit = (e) => {
+    e.preventDefault();
+    setDemoNotice('Standard password sign-in is disabled. Please click "Continue with Google" below to authenticate.');
   };
 
   useEffect(() => {
@@ -101,13 +112,13 @@ export default function LoginPage() {
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         {/* Header Icon */}
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
-            <LogIn className="w-8 h-8" />
+        <div className="text-center space-y-2">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
+            <LogIn className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Sign In to LeaveSync</h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Single Sign-On with verified corporate Google accounts
+          <h1 className="text-2xl font-bold text-white tracking-tight">Sign In to Employee360°</h1>
+          <p className="text-xs text-slate-400">
+            Employee Leave Management & Time-Off Portal
           </p>
         </div>
 
@@ -122,63 +133,111 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* Demo Notice Alert Box */}
+        {demoNotice && (
+          <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+            <Info className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
+            <p className="leading-relaxed text-[11px]">{demoNotice}</p>
+          </div>
+        )}
+
         {/* Submitting Loading State */}
-        {isSubmitting && (
+        {isSubmitting ? (
           <div className="py-6 flex flex-col items-center justify-center gap-3">
             <LoadingSpinner size="lg" />
-            <p className="text-xs text-indigo-400 font-medium animate-pulse">Verifying Google credentials with database...</p>
+            <p className="text-xs text-indigo-400 font-medium animate-pulse">
+              Verifying Google credentials with database...
+            </p>
           </div>
-        )}
-
-        {/* Google Sign-in Area */}
-        {!isSubmitting && (
+        ) : (
           <div className="space-y-4">
-            {googleClientId ? (
-              <div className="flex flex-col items-center justify-center pt-2">
-                <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center"></div>
-                <p className="text-[11px] text-slate-500 mt-2 text-center">
-                  Protected with Google Identity Services
-                </p>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-2">
-                <div className="flex items-center gap-2 font-semibold text-amber-200">
-                  <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <span>Google Client ID Required</span>
-                </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  Add <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">VITE_GOOGLE_CLIENT_ID</code> to your <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">client/.env</code> to activate Google Sign-In.
-                </p>
-                <div className="pt-1 text-[11px] text-slate-400">
-                  <span>Authorized Javascript origins: </span>
-                  <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-200">http://localhost:5173</code>
+            {/* Demo Email & Password Form */}
+            <form onSubmit={handleDemoSubmit} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-300 block">
+                  Work Email
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" aria-hidden="true" />
+                  <input
+                    type="email"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    aria-label="Email Address"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition"
+                  />
                 </div>
               </div>
-            )}
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-300 block">
+                    Password
+                  </label>
+                  <span className="text-[10px] text-slate-500 hover:underline cursor-pointer">
+                    Forgot password?
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" aria-hidden="true" />
+                  <input
+                    type="password"
+                    value={demoPassword}
+                    onChange={(e) => setDemoPassword(e.target.value)}
+                    placeholder="••••••••"
+                    aria-label="Password"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <span>Sign In</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative flex items-center justify-center pt-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-800"></div>
+              </div>
+              <span className="relative px-3 bg-slate-900 text-[11px] font-medium text-slate-400">
+                or continue with
+              </span>
+            </div>
+
+            {/* Google Sign-in Area */}
+            <div className="pt-1">
+              {googleClientId ? (
+                <div className="flex flex-col items-center justify-center">
+                  <div ref={googleBtnRef} className="min-h-[44px] flex items-center justify-center"></div>
+                  <p className="text-[10px] text-slate-500 mt-2 text-center">
+                    Protected by Google Identity Services & RBAC
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-2">
+                  <div className="flex items-center gap-2 font-semibold text-amber-200">
+                    <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span>Google Client ID Required</span>
+                  </div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">
+                    Add <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">VITE_GOOGLE_CLIENT_ID</code> to your <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">client/.env</code> to activate Google Sign-In.
+                  </p>
+                  <div className="pt-1 text-[11px] text-slate-400">
+                    <span>Authorized Javascript origins: </span>
+                    <code className="bg-slate-950 px-1.5 py-0.5 rounded text-slate-200">http://localhost:5173</code>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
-
-        {/* Role Enforcement Explanation */}
-        <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-850 text-xs text-slate-400 space-y-2.5">
-          <div className="flex items-center gap-2 text-indigo-400 font-semibold text-[11px] uppercase tracking-wider">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Automatic Role-Based Access (RBAC)</span>
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Your portal destination is determined automatically by the database:
-          </p>
-          <div className="grid grid-cols-3 gap-2 text-[10px] text-center font-medium">
-            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300">
-              Admin (1)
-            </div>
-            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300">
-              Manager (2)
-            </div>
-            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-              Employee (3)
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

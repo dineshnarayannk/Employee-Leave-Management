@@ -8,7 +8,283 @@
   }
 }
 
-/* Custom scrollbars */
+/* Smooth transition between light and dark themes */
+html, body, div, aside, header, nav, main, section, footer, button, input, select, textarea {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.1s ease;
+}
+
+/* =========================================================
+   LIGHT THEME DESIGN SYSTEM (Triggered when html has .light class)
+   ========================================================= */
+
+/* Base Canvas & Typography */
+html.light,
+html.light body {
+  background-color: #f8fafc !important; /* slate-50 */
+  color: #0f172a !important; /* slate-900 */
+}
+
+/* --- Layout & Backgrounds --- */
+html.light .bg-slate-950 {
+  background-color: #f8fafc !important; /* Main page background */
+}
+
+html.light aside,
+html.light .bg-slate-900\/95,
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900 {
+  background-color: #ffffff !important; /* Pure white sidebar & main cards */
+}
+
+/* Card elevated shadows & borders in light mode */
+html.light .shadow-xl,
+html.light .shadow-2xl,
+html.light .shadow-lg {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(226, 232, 240, 0.8) !important;
+}
+
+/* Secondary & Nested background containers (Stats, Sub-boxes, Alerts) */
+html.light .bg-slate-950\/90,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/70,
+html.light .bg-slate-950\/60,
+html.light .bg-slate-950\/50,
+html.light .bg-slate-950\/40,
+html.light .bg-slate-900\/50,
+html.light .bg-slate-900\/40,
+html.light .bg-slate-900\/20 {
+  background-color: #f8fafc !important; /* slate-50 */
+}
+
+html.light .bg-slate-850,
+html.light .bg-slate-800 {
+  background-color: #f1f5f9 !important; /* slate-100 */
+}
+
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/50,
+html.light .bg-slate-800\/40 {
+  background-color: #f1f5f9 !important;
+}
+
+/* --- Borders --- */
+html.light .border-slate-800,
+html.light .border-slate-800\/90,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60,
+html.light .border-slate-800\/50,
+html.light .border-slate-800\/30,
+html.light .border-slate-850,
+html.light .border-slate-700 {
+  border-color: #e2e8f0 !important; /* slate-200 */
+}
+
+/* --- Text & Contrast --- */
+html.light .text-white {
+  color: #0f172a !important; /* Deep Slate 900 for titles & headings */
+}
+
+html.light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-200 {
+  color: #1e293b !important; /* Slate 800 */
+}
+
+html.light .text-slate-300 {
+  color: #334155 !important; /* Slate 700 */
+}
+
+html.light .text-slate-400 {
+  color: #64748b !important; /* Slate 500 */
+}
+
+html.light .text-slate-500 {
+  color: #64748b !important; /* Slate 500 */
+}
+
+/* --- Interactive Navigation Items --- */
+html.light .text-slate-400.hover\:text-slate-100:hover,
+html.light .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-800\/60:hover,
+html.light .hover\:bg-slate-850:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Active Nav Links - High Contrast & Vibrancy */
+html.light .bg-emerald-500\/15 {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important; /* emerald-200 */
+  color: #047857 !important; /* emerald-700 */
+}
+
+html.light .bg-blue-500\/15 {
+  background-color: #eff6ff !important; /* blue-50 */
+  border-color: #bfdbfe !important; /* blue-200 */
+  color: #1d4ed8 !important; /* blue-700 */
+}
+
+html.light .bg-purple-500\/15 {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #e9d5ff !important; /* purple-200 */
+  color: #7e22ce !important; /* purple-700 */
+}
+
+/* --- Role Badges, Pills & Alerts --- */
+html.light .text-emerald-400,
+html.light .text-emerald-300 {
+  color: #047857 !important; /* emerald-700 */
+}
+
+html.light .bg-emerald-500\/10,
+html.light .bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html.light .text-blue-400,
+html.light .text-blue-300 {
+  color: #1d4ed8 !important; /* blue-700 */
+}
+
+html.light .bg-blue-500\/10,
+html.light .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+html.light .text-purple-400,
+html.light .text-purple-300 {
+  color: #7e22ce !important; /* purple-700 */
+}
+
+html.light .bg-purple-500\/10,
+html.light .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html.light .text-amber-400,
+html.light .text-amber-300 {
+  color: #b45309 !important; /* amber-700 */
+}
+
+html.light .bg-amber-500\/10,
+html.light .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html.light .text-rose-400,
+html.light .text-rose-300 {
+  color: #be123c !important; /* rose-700 */
+}
+
+html.light .bg-rose-500\/10,
+html.light .bg-rose-500\/20 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+html.light .text-indigo-400,
+html.light .text-indigo-300 {
+  color: #4338ca !important; /* indigo-700 */
+}
+
+html.light .bg-indigo-500\/10,
+html.light .bg-indigo-500\/20 {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+}
+
+/* --- Form Inputs, Textareas, and Dropdowns --- */
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important; /* slate-300 */
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus {
+  border-color: #6366f1 !important; /* indigo-500 */
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+/* --- Buttons in Light Mode --- */
+html.light button[type="button"].bg-slate-900,
+html.light button[type="button"].bg-slate-950,
+html.light button[type="button"].bg-slate-950\/70 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+html.light button[type="button"].bg-slate-900:hover,
+html.light button[type="button"].bg-slate-950:hover,
+html.light button[type="button"].bg-slate-950\/70:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Cancel / Neutral Buttons */
+html.light button.bg-slate-800,
+html.light button.bg-slate-850 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light button.bg-slate-800:hover,
+html.light button.bg-slate-850:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* Primary Action Buttons (Keep high contrast vibrant text) */
+html.light button.bg-emerald-600,
+html.light button.bg-indigo-600,
+html.light button.bg-blue-600,
+html.light button.bg-purple-600,
+html.light button.bg-rose-600,
+html.light a.bg-emerald-600,
+html.light a.bg-indigo-600,
+html.light a.bg-blue-600,
+html.light a.bg-purple-600 {
+  color: #ffffff !important;
+}
+
+/* Tables & Calendars */
+html.light th {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html.light td {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+html.light tr:hover td {
+  background-color: #f8fafc !important;
+}
+
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -25,4 +301,17 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(71, 85, 105, 1);
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

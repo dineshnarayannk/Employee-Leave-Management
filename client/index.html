@@ -1,11 +1,26 @@
 <!doctype html>
-<html lang="en" class="h-full bg-slate-900">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Employee Leave Management System</title>
+    <title>Employee360° - Leave Management System</title>
     <meta name="description" content="Streamlined Employee Leave Management System with Role-Based Access for Admin, Manager, and Employee portals." />
+    <!-- Inline Theme Init -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          if (saved === 'light') {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +28,7 @@
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
-  <body class="h-full text-slate-100 antialiased font-sans bg-slate-950">
+  <body class="h-full antialiased font-sans">
     <div id="root" class="min-h-full flex flex-col"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

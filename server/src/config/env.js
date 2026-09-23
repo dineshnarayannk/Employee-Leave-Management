@@ -28,6 +28,13 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
   },
 
+  // Google Calendar Integration
+  calendar: {
+    apiKey: process.env.GOOGLE_CALENDAR_API_KEY || '',
+    countryCode: process.env.DEFAULT_CALENDAR_COUNTRY || 'en.indian', // e.g. en.indian, en.usa
+    companyCalendarId: process.env.GOOGLE_COMPANY_CALENDAR_ID || '',
+  },
+
   // JWT Configuration
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-fallback-jwt-secret-key-32-chars-long!',

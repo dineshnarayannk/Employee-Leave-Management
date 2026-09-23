@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   CalendarDays,
   PlusCircle,
-  Filter,
   Search,
   Eye,
   XCircle,
@@ -14,11 +13,14 @@ import {
   ChevronRight,
   Loader2,
   Calendar,
-  User,
-  FileText,
   AlertTriangle,
+  RefreshCw,
+  Inbox
 } from 'lucide-react';
 import { getEmployeeLeaveRequests, cancelLeaveRequest, getLeaveTypes } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
+import StatusBadge from '../../components/common/StatusBadge';
+import EmptyState from '../../components/common/EmptyState';
 
 export default function MyLeaveRequests() {
   const [requests, setRequests] = useState([]);
@@ -34,7 +36,6 @@ export default function MyLeaveRequests() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [cancellingRequest, setCancellingRequest] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
@@ -96,41 +97,6 @@ export default function MyLeaveRequests() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'PENDING':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Clock className="w-3.5 h-3.5" />
-            Pending Review
-          </span>
-        );
-      case 'APPROVED':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Approved
-          </span>
-        );
-      case 'REJECTED':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <XCircle className="w-3.5 h-3.5" />
-            Rejected
-          </span>
-        );
-      case 'CANCELLED':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-700/50 text-slate-400 border border-slate-700">
-            <XCircle className="w-3.5 h-3.5" />
-            Cancelled
-          </span>
-        );
-      default:
-        return <span className="text-xs text-slate-400">{status}</span>;
-    }
-  };
-
   // Filter client-side search query (for reasons / dates)
   const filteredRequests = requests.filter((r) => {
     if (!searchQuery.trim()) return true;
@@ -146,25 +112,21 @@ export default function MyLeaveRequests() {
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full space-y-6">
       {/* Header & New Application CTA */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <CalendarDays className="w-6 h-6 text-emerald-400" />
-            <span>My Leave Requests</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Track status, view approval details, and manage submitted applications.
-          </p>
-        </div>
-
-        <Link
-          to="/employee/apply-leave"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/25 transition self-start sm:self-auto"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Apply for Leave</span>
-        </Link>
-      </div>
+      <PageHeader
+        title="My Leave Requests"
+        subtitle="Track status, view supervisor reviews, and manage your leave requests"
+        icon={CalendarDays}
+        iconColor="text-emerald-400"
+        actions={
+          <Link
+            to="/employee/apply-leave"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/25 transition focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Apply for Leave</span>
+          </Link>
+        }
+      />
 
       {/* Notifications / Alerts */}
       {actionSuccess && (
@@ -184,13 +146,14 @@ export default function MyLeaveRequests() {
       {/* Filters Bar */}
       <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex flex-1 items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
-          <Search className="w-4 h-4 text-slate-500" />
+          <Search className="w-4 h-4 text-slate-500" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search by reason or dates..."
+            aria-label="Search requests"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-transparent text-xs text-white placeholder:text-slate-600 focus:outline-none"
+            className="w-full bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none"
           />
         </div>
 
@@ -199,6 +162,7 @@ export default function MyLeaveRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by status"
             className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
           >
             <option value="">All Statuses</option>
@@ -212,6 +176,7 @@ export default function MyLeaveRequests() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label="Filter by leave type"
             className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
           >
             <option value="">All Leave Types</option>
@@ -232,20 +197,13 @@ export default function MyLeaveRequests() {
             <p className="text-xs text-slate-400">Loading leave requests...</p>
           </div>
         ) : filteredRequests.length === 0 ? (
-          <div className="p-16 text-center space-y-3">
-            <Calendar className="w-10 h-10 text-slate-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">No Leave Requests Found</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              You haven't submitted any leave requests matching the current filter criteria.
-            </p>
-            <Link
-              to="/employee/apply-leave"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold border border-slate-700 transition"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Apply for Leave</span>
-            </Link>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No leave requests found"
+            description="You haven't submitted any leave requests matching the current filter criteria."
+            actionText="Apply for Leave"
+            actionLink="/employee/apply-leave"
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
@@ -271,27 +229,32 @@ export default function MyLeaveRequests() {
                         {req.start_date} <span className="text-slate-500">to</span> {req.end_date}
                       </div>
                       <span className="text-[11px] text-emerald-400 font-semibold font-mono">
-                        {req.days} Day{req.days === 1 ? '' : 's'} (Inclusive)
+                        {req.days} Day{req.days === 1 ? '' : 's'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-slate-300">{req.manager_name || 'Assigned Lead'}</td>
-                    <td className="py-3.5 px-4">{getStatusBadge(req.status)}</td>
+                    <td className="py-3.5 px-4">
+                      <StatusBadge status={req.status} />
+                    </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setSelectedRequest(req)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
-                          title="View Details"
+                        <Link
+                          to={`/employee/leave-requests/${req.id}`}
+                          aria-label={`View details for request #${req.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium transition focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </Link>
                         {req.status === 'PENDING' && (
                           <button
+                            type="button"
                             onClick={() => setCancellingRequest(req)}
-                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 transition"
-                            title="Cancel Application"
+                            aria-label={`Cancel request #${req.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium border border-rose-500/20 transition focus:outline-none focus:ring-1 focus:ring-rose-500"
                           >
-                            <XCircle className="w-4 h-4" />
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Cancel</span>
                           </button>
                         )}
                       </div>
@@ -304,23 +267,31 @@ export default function MyLeaveRequests() {
         )}
 
         {/* Pagination Footer */}
-        {!loading && pagination.totalPages > 1 && (
-          <div className="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <div>
-              Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
-            </div>
+        {!loading && requests.length > 0 && (
+          <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <p>
+              Showing <span className="font-semibold text-white">{requests.length}</span> of{' '}
+              <span className="font-semibold text-white">{pagination.total}</span> requests
+            </p>
             <div className="flex items-center gap-2">
               <button
-                disabled={pagination.page <= 1}
+                type="button"
                 onClick={() => loadRequests(pagination.page - 1)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300"
+                disabled={pagination.page <= 1}
+                aria-label="Previous page"
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition focus:outline-none"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
+              <span className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-xl text-white font-semibold">
+                {pagination.page} / {pagination.totalPages || 1}
+              </span>
               <button
-                disabled={pagination.page >= pagination.totalPages}
+                type="button"
                 onClick={() => loadRequests(pagination.page + 1)}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300"
+                disabled={pagination.page >= pagination.totalPages}
+                aria-label="Next page"
+                className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition focus:outline-none"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -329,128 +300,39 @@ export default function MyLeaveRequests() {
         )}
       </div>
 
-      {/* Details Modal */}
-      {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-base font-bold text-white">
-                  Leave Request #{selectedRequest.id}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-850">
-                <span className="text-slate-400">Current Status:</span>
-                {getStatusBadge(selectedRequest.status)}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
-                  <span className="text-slate-500 block">Category</span>
-                  <span className="font-semibold text-white">{selectedRequest.leave_type_name}</span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
-                  <span className="text-slate-500 block">Total Duration</span>
-                  <span className="font-semibold text-emerald-400 font-mono">
-                    {selectedRequest.days} Day{selectedRequest.days === 1 ? '' : 's'} (Inclusive)
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
-                <span className="text-slate-500 block mb-1">Date Range</span>
-                <span className="font-medium text-slate-200">
-                  {selectedRequest.start_date} to {selectedRequest.end_date}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
-                <span className="text-slate-500 block mb-1">Reason for Absence</span>
-                <p className="text-slate-200 whitespace-pre-wrap">{selectedRequest.reason}</p>
-              </div>
-
-              {selectedRequest.manager_response && (
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
-                  <span className="text-slate-500 block mb-1">Manager Note / Feedback</span>
-                  <p className="text-slate-200 whitespace-pre-wrap italic">
-                    "{selectedRequest.manager_response}"
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                <span>Submitted: {new Date(selectedRequest.created_at).toLocaleString()}</span>
-                {selectedRequest.reviewed_at && (
-                  <span>Reviewed: {new Date(selectedRequest.reviewed_at).toLocaleString()}</span>
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cancellation Confirmation Modal */}
+      {/* Cancel Confirmation Modal */}
       {cancellingRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-rose-500/30 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-rose-400">
-              <AlertTriangle className="w-6 h-6" />
-              <h3 className="text-base font-bold text-white">Cancel Leave Application</h3>
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Cancel Leave Request</h3>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Are you sure you want to cancel your pending leave request #{cancellingRequest.id} for{' '}
-              <strong className="text-white">
-                {cancellingRequest.start_date} to {cancellingRequest.end_date}
-              </strong>{' '}
-              ({cancellingRequest.days} days)? This action is permanent.
+              Are you sure you want to cancel request <strong className="text-white">#{cancellingRequest.id}</strong> (
+              {cancellingRequest.leave_type_name} for {cancellingRequest.start_date} to {cancellingRequest.end_date})?
             </p>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
-                disabled={cancelLoading}
                 onClick={() => setCancellingRequest(null)}
+                disabled={cancelLoading}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
               >
                 Keep Request
               </button>
               <button
                 type="button"
-                disabled={cancelLoading}
                 onClick={handleCancelSubmit}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/20 transition"
+                disabled={cancelLoading}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-500/25 transition disabled:opacity-50"
               >
-                {cancelLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Cancelling...</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>Confirm Cancellation</span>
-                  </>
-                )}
+                {cancelLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                <span>{cancelLoading ? 'Cancelling...' : 'Confirm Cancellation'}</span>
               </button>
             </div>
           </div>

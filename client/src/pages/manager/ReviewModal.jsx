@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Loader2, Check, Ban, X } from 'lucide-react';
 import { approveLeaveRequest, rejectLeaveRequest } from '../../services/api';
 
-export default function ReviewModal({ request, actionType, onClose, onSuccess }) {
+export default function ReviewModal({ request, actionType, initialAction, onClose, onSuccess }) {
+  const [selectedAction, setSelectedAction] = useState(actionType || initialAction || 'APPROVE');
   const [responseMsg, setResponseMsg] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  if (!request || !actionType) return null;
+  if (!request) return null;
 
-  const isApprove = actionType === 'APPROVE';
+  const isApprove = selectedAction === 'APPROVE';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,13 +42,13 @@ export default function ReviewModal({ request, actionType, onClose, onSuccess })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
       <div
-        className={`bg-slate-900 border rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl ${
+        className={`bg-slate-900 border rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl transition-all ${
           isApprove ? 'border-emerald-500/30' : 'border-rose-500/30'
         }`}
       >
-        {/* Header */}
+        {/* Header & Quick Action Tabs */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-3">
             {isApprove ? (
@@ -67,10 +68,40 @@ export default function ReviewModal({ request, actionType, onClose, onSuccess })
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+            aria-label="Close modal"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
           >
-            ✕
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Action Switcher Tabs */}
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-950 border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setSelectedAction('APPROVE')}
+            className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition ${
+              isApprove
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>Approve Request</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedAction('REJECT')}
+            className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition ${
+              !isApprove
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Ban className="w-3.5 h-3.5" />
+            <span>Reject Request</span>
           </button>
         </div>
 

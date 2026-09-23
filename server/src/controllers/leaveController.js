@@ -414,3 +414,54 @@ export async function handleMarkAllNotificationsRead(req, res) {
     });
   }
 }
+
+/**
+ * GET /api/manager/analytics (Step 7)
+ */
+export async function handleGetManagerAnalytics(req, res) {
+  try {
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const analytics = await leaveService.getManagerAnalytics(req.user.id, year);
+    return res.status(200).json({
+      success: true,
+      data: analytics,
+    });
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message || 'Failed to retrieve manager analytics',
+    });
+  }
+}
+
+/**
+ * GET /api/manager/reports (Step 7)
+ */
+export async function handleGetManagerReports(req, res) {
+  try {
+    const reportData = await leaveService.getManagerReports(req.user.id, {
+      year: req.query.year ? parseInt(req.query.year, 10) : undefined,
+      status: req.query.status,
+      leave_type_id: req.query.leave_type_id ? parseInt(req.query.leave_type_id, 10) : undefined,
+      employee_id: req.query.employee_id ? parseInt(req.query.employee_id, 10) : undefined,
+      search: req.query.search,
+      page: req.query.page ? parseInt(req.query.page, 10) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit, 10) : 50,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: reportData.records,
+      summary: reportData.summary,
+      pagination: reportData.pagination,
+    });
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message || 'Failed to generate manager reports',
+    });
+  }
+}
+

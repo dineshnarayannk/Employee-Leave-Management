@@ -120,8 +120,103 @@ async function runAdminUserManagementTests() {
     console.log(`   ✓ Found ${auditLogs.length} audit logs for Admin:`);
     auditLogs.forEach((log) => console.log(`     - [${log.action}] on ${log.entity_type} at ${log.created_at}`));
 
+    // ==============================================================================
+    // STEP 7: ADMIN ANALYTICS, REPORTS & LEAVE POLICIES TESTS
+    // ==============================================================================
+    console.log('\n----------------------------------------------------');
+    console.log(' STEP 7: Admin Analytics, Reports & Policy Tests');
+    console.log('----------------------------------------------------');
+
+    // Test 10: Fetch System-wide Analytics
+    console.log('\n Test 10: Fetch Admin System-wide Analytics...');
+    const analytics = await adminService.getAdminAnalytics(2026);
+    if (!analytics || !analytics.summary || !Array.isArray(analytics.monthlyTrend)) {
+      throw new Error('FAILED: Admin analytics returned invalid data structure');
+    }
+    console.log(`   ✓ Admin analytics retrieved: Total Requests: ${analytics.summary.totalRequests}, Approved Days: ${analytics.summary.approvedLeaveDays}, Months tracked: ${analytics.monthlyTrend.length}`);
+
+    // Test 11: Fetch System-wide Reports
+    console.log('\n Test 11: Fetch Admin System-wide Reports...');
+    const reports = await adminService.getAdminReports({ year: 2026, page: 1, limit: 10 });
+    if (!reports || !Array.isArray(reports.records) || typeof reports.summary?.totalRecords !== 'number') {
+      throw new Error('FAILED: Admin reports returned invalid structure');
+    }
+    console.log(`   ✓ Admin reports retrieved: ${reports.records.length} records on page, total records: ${reports.summary.totalRecords}`);
+
+    // Test 12: Create a new Leave Policy Category
+    console.log('\n Test 12: Create new Leave Policy Type (Sabbatical Leave)...');
+    const policyName = `Sabbatical Leave ${Date.now()}`;
+    const newPolicy = await adminService.createLeaveType(admin.id, {
+      name: policyName,
+      description: 'Extended personal growth or study leave',
+      default_days: 30,
+      is_active: true,
+    });
+    console.log(`   ✓ Created policy: #${newPolicy.id} "${newPolicy.name}" with ${newPolicy.default_days} default days`);
+
+    // Test 13: Prevent Duplicate Leave Policy Name
+    console.log('\n Test 13: Verify Duplicate Policy Name Rejection...');
+    try {
+      await adminService.createLeaveType(admin.id, {
+        name: policyName,
+        description: 'Duplicate attempt',
+        default_days: 15,
+      });
+      throw new Error('FAILED: Duplicate policy name was not rejected!');
+    } catch (dupPolicyErr) {
+      if (dupPolicyErr.statusCode === 409) {
+        console.log('   ✓ Correctly rejected duplicate policy name with HTTP 409 Conflict.');
+      } else {
+        throw dupPolicyErr;
+      }
+    }
+
+    // Test 14: Update Leave Policy Category
+    console.log('\n Test 14: Update Leave Policy (change default days to 45)...');
+    const updatedPolicy = await adminService.updateLeaveType(admin.id, newPolicy.id, {
+      default_days: 45,
+      description: 'Updated study and fellowship leave',
+    });
+    if (updatedPolicy.default_days !== 45) {
+      throw new Error('FAILED: Leave policy default days did not update');
+    }
+    console.log(`   ✓ Updated policy default days: ${updatedPolicy.default_days}`);
+
+    // Test 15: Toggle Leave Policy Status
+    console.log('\n Test 15: Toggle Policy Active Status...');
+    const deactPolicy = await adminService.updateLeaveTypeStatus(admin.id, newPolicy.id, false);
+    console.log(`   ✓ Policy deactivated: is_active = ${deactPolicy.is_active}`);
+    const reactPolicy = await adminService.updateLeaveTypeStatus(admin.id, newPolicy.id, true);
+    console.log(`   ✓ Policy reactivated: is_active = ${reactPolicy.is_active}`);
+
+    // Test 16: Safe Deletion of Unreferenced Policy
+    console.log('\n Test 16: Safe Deletion of Unreferenced Policy...');
+    const deletePolicyResult = await adminService.deleteLeaveType(admin.id, newPolicy.id);
+    console.log(`   ✓ ${deletePolicyResult.message}`);
+
+    // Test 17: Deletion Block on Referenced Policy (e.g. Casual Leave ID: 1)
+    console.log('\n Test 17: Verify Deletion Block on Referenced Policy...');
+    try {
+      await adminService.deleteLeaveType(admin.id, 1); // Casual Leave is referenced by seed requests/balances
+      throw new Error('FAILED: Deletion of referenced policy was not blocked!');
+    } catch (delRefErr) {
+      if (delRefErr.statusCode === 409) {
+        console.log('   ✓ Correctly blocked deletion of referenced policy with HTTP 409 Conflict.');
+      } else {
+        throw delRefErr;
+      }
+    }
+
+    // Test 18: Verify Policy Audit Logs
+    console.log('\n Test 18: Verify Policy Audit Logs in TiDB...');
+    const policyAuditLogs = await query(
+      "SELECT action, entity_type, created_at FROM audit_logs WHERE action LIKE 'LEAVE_TYPE%' ORDER BY id DESC LIMIT 5"
+    );
+    console.log(`   ✓ Found ${policyAuditLogs.length} policy audit logs:`);
+    policyAuditLogs.forEach((log) => console.log(`     - [${log.action}] on ${log.entity_type} at ${log.created_at}`));
+
     console.log('\n====================================================');
-    console.log('  All Admin User Management Unit & API Tests Passed!');
+    console.log('  All Admin User & Step 7 Policy/Analytics Tests Passed!');
     console.log('====================================================');
     process.exit(0);
   } catch (err) {
@@ -131,3 +226,4 @@ async function runAdminUserManagementTests() {
 }
 
 runAdminUserManagementTests();
+

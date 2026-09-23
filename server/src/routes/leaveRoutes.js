@@ -14,6 +14,8 @@ import {
   handleRejectLeave,
   handleGetTeamBalances,
   handleGetManagerStats,
+  handleGetManagerAnalytics,
+  handleGetManagerReports,
   handleGetNotifications,
   handleMarkNotificationRead,
   handleMarkAllNotificationsRead,
@@ -60,6 +62,9 @@ managerRouter.patch('/leave-requests/:id/approve', handleApproveLeave);
 managerRouter.patch('/leave-requests/:id/reject', handleRejectLeave);
 managerRouter.get('/team-balances', handleGetTeamBalances);
 managerRouter.get('/stats', handleGetManagerStats);
+managerRouter.get('/analytics', handleGetManagerAnalytics);
+managerRouter.get('/reports', handleGetManagerReports);
 
 export { router as leaveCommonRoutes, employeeRouter, managerRouter };
 export default router;
+

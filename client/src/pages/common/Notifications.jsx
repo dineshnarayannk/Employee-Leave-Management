@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, getPortalPath } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   Bell,
   CheckCheck,
   Check,
   Clock,
-  Calendar,
   AlertCircle,
   Loader2,
   Filter,
   ArrowRight,
-  Sparkles,
-  Inbox,
+  Inbox
 } from 'lucide-react';
 import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
+import EmptyState from '../../components/common/EmptyState';
 
 export default function Notifications() {
   const { user } = useAuth();
@@ -91,42 +91,40 @@ export default function Notifications() {
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto w-full space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <Bell className="w-6 h-6 text-indigo-400" />
-            <span>Notification Center</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            Real-time activity feed for leave submissions, approvals, rejections, and cancellations.
-          </p>
-        </div>
+      <PageHeader
+        title="Notification Center"
+        subtitle="Real-time activity feed for leave submissions, manager approvals, rejections, and cancellations"
+        icon={Bell}
+        iconColor="text-indigo-400"
+        actions={
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAll}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold transition focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <CheckCheck className="w-4 h-4" />
+                <span>Mark All Read</span>
+              </button>
+            )}
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {unreadCount > 0 && (
+            {/* Toggle Unread filter */}
             <button
-              onClick={handleMarkAll}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold transition"
+              type="button"
+              onClick={() => setFilterUnread(!filterUnread)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                filterUnread
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+              }`}
             >
-              <CheckCheck className="w-4 h-4" />
-              <span>Mark All Read</span>
+              <Filter className="w-3.5 h-3.5" />
+              <span>{filterUnread ? 'Showing Unread' : 'All Notifications'}</span>
             </button>
-          )}
-
-          {/* Toggle Unread filter */}
-          <button
-            onClick={() => setFilterUnread(!filterUnread)}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
-              filterUnread
-                ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg shadow-indigo-600/20'
-                : 'bg-slate-900 hover:bg-slate-850 text-slate-300 border-slate-800'
-            }`}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            <span>{filterUnread ? 'Showing Unread' : 'All Notifications'}</span>
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {actionSuccess && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs sm:text-sm flex items-center gap-3">
@@ -142,6 +140,7 @@ export default function Notifications() {
             <span>{error}</span>
           </div>
           <button
+            type="button"
             onClick={loadNotifications}
             className="text-xs font-semibold underline hover:text-white"
           >
@@ -158,15 +157,15 @@ export default function Notifications() {
             <p className="text-xs text-slate-400">Loading your notifications...</p>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="p-16 text-center space-y-3">
-            <Inbox className="w-10 h-10 text-slate-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-white">No Notifications Found</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              {filterUnread
-                ? 'You have caught up with all your unread notifications!'
-                : 'Activity and leave status updates will appear here once submitted.'}
-            </p>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No notifications found"
+            description={
+              filterUnread
+                ? 'You are all caught up with your unread notifications!'
+                : 'Activity and leave status updates will appear here once submitted.'
+            }
+          />
         ) : (
           <div className="divide-y divide-slate-800/60">
             {notifications.map((n) => (
@@ -211,9 +210,11 @@ export default function Notifications() {
 
                 {!n.is_read && (
                   <button
+                    type="button"
                     onClick={(e) => handleMarkSingleRead(n.id, e)}
+                    aria-label="Mark as read"
                     title="Mark as read"
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition shrink-0"
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition shrink-0 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>

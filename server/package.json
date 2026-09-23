@@ -12,7 +12,8 @@
     "db:seed": "node src/db/seedDb.js",
     "test:auth": "node src/test/authTest.js",
     "test:admin": "node src/test/adminUserTest.js",
-    "test:leave": "node src/test/leaveEngineTest.js"
+    "test:leave": "node src/test/leaveEngineTest.js",
+    "test:calendar": "node src/test/calendarServiceTest.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

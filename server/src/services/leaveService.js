@@ -1189,3 +1189,290 @@ export async function markAllNotificationsAsRead(userId) {
   ]);
   return { success: true, message: 'All notifications marked as read.' };
 }
+
+/**
+ * Fetch Manager Team Analytics for Direct Reports (Step 7)
+ */
+export async function getManagerAnalytics(managerId, year = new Date().getFullYear()) {
+  const numericYear = Number(year) || new Date().getFullYear();
+
+  // 1. Direct reports count
+  const [directReports] = await query(
+    'SELECT COUNT(*) AS count FROM users WHERE manager_id = ? AND is_active = TRUE',
+    [managerId]
+  );
+  const teamDirectReportsCount = Number(directReports?.count || 0);
+
+  // 2. Summary stats for the manager's team in the chosen year
+  const summarySql = `
+    SELECT 
+      COUNT(*) AS total_requests,
+      SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) AS pending_requests,
+      SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_requests,
+      SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected_requests,
+      SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled_requests
+    FROM leave_requests
+    WHERE manager_id = ? AND (YEAR(start_date) = ? OR YEAR(end_date) = ?)
+  `;
+  const [summaryRow] = await query(summarySql, [managerId, numericYear, numericYear]);
+
+  // Total approved leave days for team
+  const approvedDaysSql = `
+    SELECT start_date, end_date
+    FROM leave_requests
+    WHERE manager_id = ? AND status = 'APPROVED' AND (YEAR(start_date) = ? OR YEAR(end_date) = ?)
+  `;
+  const approvedRows = await query(approvedDaysSql, [managerId, numericYear, numericYear]);
+  let totalApprovedDays = 0;
+  for (const r of approvedRows) {
+    const s = formatISODate(r.start_date);
+    const e = formatISODate(r.end_date);
+    try {
+      totalApprovedDays += calculateInclusiveDays(s, e);
+    } catch (err) {}
+  }
+
+  // 3. Monthly Trend for Team (12 months)
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyTrend = monthNames.map((name, idx) => ({
+    month: name,
+    monthIndex: idx + 1,
+    totalRequests: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+    cancelled: 0,
+    approvedDays: 0,
+  }));
+
+  const allTeamYearRequestsSql = `
+    SELECT id, start_date, end_date, status
+    FROM leave_requests
+    WHERE manager_id = ? AND (YEAR(start_date) = ? OR YEAR(end_date) = ?)
+  `;
+  const teamYearRequests = await query(allTeamYearRequestsSql, [managerId, numericYear, numericYear]);
+
+  for (const req of teamYearRequests) {
+    const s = formatISODate(req.start_date);
+    const e = formatISODate(req.end_date);
+    const startMonth = new Date(s).getUTCMonth();
+    if (startMonth >= 0 && startMonth < 12) {
+      monthlyTrend[startMonth].totalRequests++;
+      if (req.status === 'APPROVED') {
+        monthlyTrend[startMonth].approved++;
+        try {
+          monthlyTrend[startMonth].approvedDays += calculateInclusiveDays(s, e);
+        } catch (err) {}
+      } else if (req.status === 'PENDING') {
+        monthlyTrend[startMonth].pending++;
+      } else if (req.status === 'REJECTED') {
+        monthlyTrend[startMonth].rejected++;
+      } else if (req.status === 'CANCELLED') {
+        monthlyTrend[startMonth].cancelled++;
+      }
+    }
+  }
+
+  // 4. Status Distribution
+  const pendingCount = Number(summaryRow?.pending_requests || 0);
+  const approvedCount = Number(summaryRow?.approved_requests || 0);
+  const rejectedCount = Number(summaryRow?.rejected_requests || 0);
+  const cancelledCount = Number(summaryRow?.cancelled_requests || 0);
+  const totalRequests = Number(summaryRow?.total_requests || 0);
+
+  const statusDistribution = [
+    { status: 'APPROVED', label: 'Approved', count: approvedCount, color: '#10B981' },
+    { status: 'PENDING', label: 'Pending', count: pendingCount, color: '#F59E0B' },
+    { status: 'REJECTED', label: 'Rejected', count: rejectedCount, color: '#EF4444' },
+    { status: 'CANCELLED', label: 'Cancelled', count: cancelledCount, color: '#64748B' },
+  ];
+
+  // 5. Leave Type Usage by Direct Reports
+  const leaveTypeUsageSql = `
+    SELECT 
+      lt.id AS leave_type_id,
+      lt.name AS leave_type_name,
+      COUNT(lr.id) AS total_requests,
+      SUM(CASE WHEN lr.status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_count
+    FROM leave_types lt
+    LEFT JOIN leave_requests lr ON lt.id = lr.leave_type_id AND lr.manager_id = ? AND (YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)
+    GROUP BY lt.id, lt.name
+    ORDER BY total_requests DESC
+  `;
+  const leaveTypeRows = await query(leaveTypeUsageSql, [managerId, numericYear, numericYear]);
+  const leaveTypeUsage = leaveTypeRows.map((r) => ({
+    leave_type_id: r.leave_type_id,
+    name: r.leave_type_name,
+    totalRequests: Number(r.total_requests || 0),
+    approvedCount: Number(r.approved_count || 0),
+  }));
+
+  // 6. Direct Reports Leave Breakdown
+  const employeeUsageSql = `
+    SELECT 
+      u.id AS employee_id,
+      u.name AS employee_name,
+      u.email AS employee_email,
+      u.department,
+      COUNT(lr.id) AS total_requests,
+      SUM(CASE WHEN lr.status = 'APPROVED' THEN 1 ELSE 0 END) AS approved_requests,
+      SUM(CASE WHEN lr.status = 'PENDING' THEN 1 ELSE 0 END) AS pending_requests
+    FROM users u
+    LEFT JOIN leave_requests lr ON u.id = lr.employee_id AND (YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)
+    WHERE u.manager_id = ? AND u.is_active = TRUE
+    GROUP BY u.id, u.name, u.email, u.department
+    ORDER BY total_requests DESC
+  `;
+  const empUsageRows = await query(employeeUsageSql, [numericYear, numericYear, managerId]);
+  const employeeUsage = empUsageRows.map((e) => ({
+    employee_id: e.employee_id,
+    name: e.employee_name,
+    email: e.employee_email,
+    department: e.department,
+    totalRequests: Number(e.total_requests || 0),
+    approvedRequests: Number(e.approved_requests || 0),
+    pendingRequests: Number(e.pending_requests || 0),
+  }));
+
+  return {
+    year: numericYear,
+    summary: {
+      teamDirectReportsCount,
+      totalRequests,
+      pendingRequests: pendingCount,
+      approvedRequests: approvedCount,
+      rejectedRequests: rejectedCount,
+      cancelledRequests: cancelledCount,
+      approvedLeaveDays: totalApprovedDays,
+    },
+    monthlyTrend,
+    statusDistribution,
+    leaveTypeUsage,
+    employeeUsage,
+  };
+}
+
+/**
+ * Fetch Tabular Leave Reports for Manager Direct Reports (Step 7)
+ */
+export async function getManagerReports(
+  managerId,
+  { year, status, leave_type_id, employee_id, search, page = 1, limit = 50 }
+) {
+  // Manager scope check: lr.manager_id = managerId
+  const whereClauses = ['lr.manager_id = ?'];
+  const params = [managerId];
+
+  if (year) {
+    whereClauses.push('(YEAR(lr.start_date) = ? OR YEAR(lr.end_date) = ?)');
+    params.push(year, year);
+  }
+
+  if (status) {
+    whereClauses.push('lr.status = ?');
+    params.push(status);
+  }
+
+  if (leave_type_id) {
+    whereClauses.push('lr.leave_type_id = ?');
+    params.push(leave_type_id);
+  }
+
+  if (employee_id) {
+    whereClauses.push('lr.employee_id = ?');
+    params.push(employee_id);
+  }
+
+  if (search) {
+    whereClauses.push('(u.name LIKE ? OR u.email LIKE ? OR lr.reason LIKE ? OR lt.name LIKE ?)');
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+
+  // Count total records
+  const countSql = `
+    SELECT COUNT(*) AS total 
+    FROM leave_requests lr
+    JOIN users u ON lr.employee_id = u.id
+    JOIN leave_types lt ON lr.leave_type_id = lt.id
+    ${whereSql}
+  `;
+  const [countRes] = await query(countSql, params);
+  const total = Number(countRes?.total || 0);
+
+  // Paginated query
+  const offset = (page - 1) * limit;
+  const dataSql = `
+    SELECT 
+      lr.id,
+      lr.employee_id,
+      u.name AS employee_name,
+      u.email AS employee_email,
+      u.department AS employee_department,
+      lr.manager_id,
+      lr.leave_type_id,
+      lt.name AS leave_type_name,
+      lr.start_date,
+      lr.end_date,
+      lr.reason,
+      lr.status,
+      lr.manager_response,
+      lr.reviewed_at,
+      lr.created_at
+    FROM leave_requests lr
+    JOIN users u ON lr.employee_id = u.id
+    JOIN leave_types lt ON lr.leave_type_id = lt.id
+    ${whereSql}
+    ORDER BY lr.start_date DESC, lr.id DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const rows = await query(dataSql, [...params, limit, offset]);
+
+  let totalApprovedDays = 0;
+  const records = rows.map((r) => {
+    const formattedStart = formatISODate(r.start_date);
+    const formattedEnd = formatISODate(r.end_date);
+    const duration = calculateInclusiveDays(formattedStart, formattedEnd);
+
+    if (r.status === 'APPROVED') {
+      totalApprovedDays += duration;
+    }
+
+    return {
+      id: r.id,
+      employee_id: r.employee_id,
+      employee_name: r.employee_name,
+      employee_email: r.employee_email,
+      employee_department: r.employee_department,
+      manager_id: r.manager_id,
+      leave_type_id: r.leave_type_id,
+      leave_type_name: r.leave_type_name,
+      start_date: formattedStart,
+      end_date: formattedEnd,
+      days: duration,
+      reason: r.reason,
+      status: r.status,
+      manager_response: r.manager_response,
+      reviewed_at: r.reviewed_at,
+      created_at: r.created_at,
+    };
+  });
+
+  return {
+    records,
+    summary: {
+      totalRecords: total,
+      pageApprovedDays: totalApprovedDays,
+    },
+    pagination: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
+}
+

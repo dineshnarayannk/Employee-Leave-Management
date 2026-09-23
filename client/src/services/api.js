@@ -300,4 +300,171 @@ export async function markAllNotificationsRead() {
   });
 }
 
+/* ==============================================================================
+   STEP 7: ANALYTICS, REPORTS & LEAVE POLICIES API METHODS
+   ============================================================================== */
+
+/**
+ * Fetch Manager Team Analytics
+ */
+export async function getManagerAnalytics(year) {
+  return apiRequest(`/manager/analytics${year ? `?year=${year}` : ''}`);
+}
+
+/**
+ * Fetch Manager Team Leave Reports
+ */
+export async function getManagerReports(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.year) queryParams.append('year', params.year);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.leave_type_id) queryParams.append('leave_type_id', params.leave_type_id);
+  if (params.employee_id) queryParams.append('employee_id', params.employee_id);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return apiRequest(`/manager/reports${queryString ? `?${queryString}` : ''}`);
+}
+
+/**
+ * Fetch System-wide Analytics (Admin)
+ */
+export async function getAdminAnalytics(year) {
+  return apiRequest(`/admin/analytics${year ? `?year=${year}` : ''}`);
+}
+
+/**
+ * Fetch System-wide Leave Reports (Admin)
+ */
+export async function getAdminReports(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.year) queryParams.append('year', params.year);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.leave_type_id) queryParams.append('leave_type_id', params.leave_type_id);
+  if (params.department) queryParams.append('department', params.department);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return apiRequest(`/admin/reports${queryString ? `?${queryString}` : ''}`);
+}
+
+/**
+ * Fetch all leave policy types (Admin)
+ */
+export async function getAdminLeaveTypes() {
+  return apiRequest('/admin/leave-types');
+}
+
+/**
+ * Create a new leave type policy (Admin)
+ */
+export async function createAdminLeaveType(data) {
+  return apiRequest('/admin/leave-types', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Update leave type policy (Admin)
+ */
+export async function updateAdminLeaveType(id, data) {
+  return apiRequest(`/admin/leave-types/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Toggle leave type status (Admin)
+ */
+export async function updateAdminLeaveTypeStatus(id, isActive) {
+  return apiRequest(`/admin/leave-types/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_active: isActive }),
+  });
+}
+
+/**
+ * Delete leave type policy safely (Admin)
+ */
+export async function deleteAdminLeaveType(id) {
+  return apiRequest(`/admin/leave-types/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/* ==============================================================================
+   GOOGLE CALENDAR & HOLIDAYS API METHODS
+   ============================================================================== */
+
+/**
+ * Fetch unified stream of calendar events (Holidays, Company Events, Approved Leaves)
+ * @param {object} params - { start_date, end_date, categories, department, employee_id, country_code }
+ */
+export async function getCalendarEvents(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.start_date) queryParams.append('start_date', params.start_date);
+  if (params.end_date) queryParams.append('end_date', params.end_date);
+  if (params.categories) {
+    const catStr = Array.isArray(params.categories) ? params.categories.join(',') : params.categories;
+    queryParams.append('categories', catStr);
+  }
+  if (params.department) queryParams.append('department', params.department);
+  if (params.employee_id) queryParams.append('employee_id', params.employee_id);
+  if (params.country_code) queryParams.append('country_code', params.country_code);
+
+  const queryString = queryParams.toString();
+  return apiRequest(`/calendar/events${queryString ? `?${queryString}` : ''}`);
+}
+
+/**
+ * Fetch public and company holidays for a specified date range
+ * @param {object} params - { start_date, end_date, year, country_code }
+ */
+export async function getCalendarHolidays(params = {}) {
+  const queryParams = new URLSearchParams();
+  if (params.start_date) queryParams.append('start_date', params.start_date);
+  if (params.end_date) queryParams.append('end_date', params.end_date);
+  if (params.year) queryParams.append('year', params.year);
+  if (params.country_code) queryParams.append('country_code', params.country_code);
+
+  const queryString = queryParams.toString();
+  return apiRequest(`/calendar/holidays${queryString ? `?${queryString}` : ''}`);
+}
+
+/**
+ * Download standard RFC 5545 iCalendar (.ics) file for external calendar subscription
+ * @param {number} year
+ * @param {boolean} includeHolidays
+ */
+export async function downloadCalendarIcs(year = new Date().getFullYear(), includeHolidays = true) {
+  const url = `${API_BASE_URL}/calendar/export/ics?year=${year}&include_holidays=${includeHolidays}`;
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to export calendar. Status: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `employee360-calendar-${year}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
+
+
 
